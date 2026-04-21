@@ -1001,7 +1001,6 @@ a.tlink:hover { text-decoration:underline; }
   border-radius:20px; padding:5px 14px; cursor:pointer;
   box-shadow:var(--shadow-xs); transition:all .15s;
   font-size:12px; font-weight:500; color:var(--text2); white-space:nowrap;
-  overflow:hidden;
 }
 .req-toggle:hover { border-color:var(--blue); color:var(--blue); background:#fff; }
 .req-toggle.has-sel { background:var(--blue); color:#fff; border-color:var(--blue); }
@@ -2227,19 +2226,17 @@ function _updateReqDDSel(){
   const allAgentNames=entries.map(([n])=>n);
   const allAgentsSel=allAgentNames.length>0&&allAgentNames.every(n=>Array.isArray(F.requester)&&F.requester.includes(n));
   const noneSelected=!F.requester||!F.requester.length;
-  // Update each opt's sel class and checkmark
+  // Update each opt using data-req-type / data-req-name attributes (reliable, no regex)
   const opts=dd.querySelectorAll('.req-opt');
   opts.forEach(opt=>{
-    const onclick=opt.getAttribute('onclick')||'';
+    const dtype=opt.getAttribute('data-req-type');
+    const dname=opt.getAttribute('data-req-name');
     let isSel=false;
-    if(onclick.includes("selectRequester('')")) isSel=noneSelected;
-    else if(onclick.includes('selectAllAgents')) isSel=allAgentsSel;
-    else {
-      const m=onclick.match(/selectRequester\('([^']+)'\)/);
-      if(m) isSel=Array.isArray(F.requester)&&F.requester.includes(m[1]);
-    }
+    if(dtype==='all') isSel=noneSelected;
+    else if(dtype==='agents') isSel=allAgentsSel;
+    else if(dname) isSel=Array.isArray(F.requester)&&F.requester.includes(dname);
     opt.classList.toggle('sel',isSel);
-    const chk=opt.querySelector('span[style*="color:var(--blue)"]');
+    const chk=opt.querySelector('.req-chk');
     if(chk) chk.innerHTML=isSel?'&#10003;':'';
   });
 }
@@ -2258,38 +2255,39 @@ function renderReqDD(){
   const allAgentNames=entries.map(([n])=>n);
   const allAgentsSel=allAgentNames.length>0&&allAgentNames.every(n=>Array.isArray(F.requester)&&F.requester.includes(n));
 
-  let h=`<div class="req-opt${noneSelected?' sel':''}" onclick="event.stopPropagation();selectRequester('')" style="justify-content:space-between;">
+  let h=`<div class="req-opt${noneSelected?' sel':''}" data-req-type="all" onclick="event.stopPropagation();selectRequester('')" style="justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:6px;">
       <div class="av" style="background:var(--muted2);width:22px;height:22px;font-size:9px;">All</div>
       <span class="req-opt-name">All Requesters</span>
     </div>
     <div style="display:flex;align-items:center;gap:4px;">
       <span class="req-opt-ct">${allT.length}</span>
-      <span style="font-size:12px;color:var(--blue);font-weight:700;min-width:14px;">${noneSelected?'&#10003;':''}</span>
+      <span class="req-chk" style="font-size:12px;color:var(--blue);font-weight:700;min-width:14px;">${noneSelected?'&#10003;':''}</span>
     </div>
   </div>
-  <div class="req-opt${allAgentsSel?' sel':''}" onclick="event.stopPropagation();selectAllAgents()" style="justify-content:space-between;background:${allAgentsSel?'var(--blue-bg)':'rgba(52,199,89,.06)'};border-bottom:1px solid var(--border);">
+  <div class="req-opt${allAgentsSel?' sel':''}" data-req-type="agents" onclick="event.stopPropagation();selectAllAgents()" style="justify-content:space-between;background:${allAgentsSel?'var(--blue-bg)':'rgba(52,199,89,.06)'};border-bottom:1px solid var(--border);">
     <div style="display:flex;align-items:center;gap:6px;">
       <div class="av" style="background:var(--green);width:22px;height:22px;font-size:9px;">S</div>
       <span class="req-opt-name" style="font-weight:700;">All Support Agents</span>
     </div>
     <div style="display:flex;align-items:center;gap:4px;">
       <span class="req-opt-ct">${entries.reduce((s,[,d])=>s+d.total,0)}</span>
-      <span style="font-size:12px;color:var(--blue);font-weight:700;min-width:14px;">${allAgentsSel?'&#10003;':''}</span>
+      <span class="req-chk" style="font-size:12px;color:var(--blue);font-weight:700;min-width:14px;">${allAgentsSel?'&#10003;':''}</span>
     </div>
   </div>`;
 
   h+=entries.map(([name,d])=>{
     const isSel=Array.isArray(F.requester)&&F.requester.includes(name);
-    const safeN=esc(name).replace(/'/g,'&#39;');
-    return `<div class="req-opt${isSel?' sel':''}" onclick="event.stopPropagation();selectRequester('${safeN}')" style="justify-content:space-between;">
+    // Store raw name as data attribute; use JSON.stringify for safe inline handler
+    const safeAttr=name.replace(/"/g,'&quot;');
+    return `<div class="req-opt${isSel?' sel':''}" data-req-type="person" data-req-name="${safeAttr}" onclick="event.stopPropagation();selectRequesterByEl(this)" style="justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
         <div class="av" style="background:${avc(name)};width:22px;height:22px;font-size:9px;">${ini(name)}</div>
         <span class="req-opt-name">${esc(name)}</span>
       </div>
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
         <span class="req-opt-ct">${d.total}</span>
-        <span style="font-size:12px;color:var(--blue);font-weight:700;min-width:14px;">${isSel?'&#10003;':''}</span>
+        <span class="req-chk" style="font-size:12px;color:var(--blue);font-weight:700;min-width:14px;">${isSel?'&#10003;':''}</span>
       </div>
     </div>`;
   }).join('');
@@ -2341,6 +2339,11 @@ function selectRequester(name){
   document.querySelectorAll('.kpi-card.sel,.agent-card.sel').forEach(c=>c.classList.remove('sel'));
   actSel={kpi:null,agent:null,eng:null};
   updateClearAllBtn();pg=1;render();
+}
+// selectRequesterByEl reads the raw name from data attribute — avoids escaping mismatches
+function selectRequesterByEl(el){
+  const name=el.getAttribute('data-req-name');
+  if(name) selectRequester(name);
 }
 function selectAllAgents(){
   if(!window._rMap)return;
@@ -2441,8 +2444,13 @@ function clearAllFilters(){
 function updateClearAllBtn(){
   var btn=document.getElementById('clearAllBtn');
   if(!btn)return;
-  var hasFilter=F.status.length||F.priority.length||F.requester.length||F.dateFrom||F.dateTo||F.search;
-  btn.style.display=hasFilter?'':'none';
+  var show=F.status.length||F.priority.length||F.requester.length||F.dateFrom||F.dateTo||F.search||calFrom||calTo;
+  if(show){
+    btn.style.cssText='';
+    btn.style.display='inline-flex';
+  } else {
+    btn.style.cssText='display:none;padding:0;margin:0;width:0;min-width:0;overflow:hidden;border:none;opacity:0;pointer-events:none;';
+  }
 }
 
 function applyFilters(){
@@ -3824,8 +3832,9 @@ function buildPanelList(tix,max=25){
 
 // TABLE
 function renderTable(){
-  // All Tickets table is independent of the top-bar date filter
-  const tblT=allT.filter(t=>{
+  // All Tickets table starts from widgetT so toolbar filters (status/priority/requester/date)
+  // match KPI counts — table-level TF filters apply on top as additional refinement
+  const tblT=widgetT.filter(t=>{
     if(TF.search){
       const h=(t['Ticket ID']+' '+t['Subject']+' '+(t['Requester (Name)']||'')+' '+(t['Assigned To (Name)']||'')+' '+(t['Team']||'')+' '+(t['Tags']||'')).toLowerCase();
       if(!h.includes(TF.search))return false;
@@ -4176,9 +4185,9 @@ const TAG_COLORS={
 let _tagStatus='all'; // show all statuses
 
 function renderTag(){
-  // Use dateT (only date-filtered) so Tag widget matches table when same dates are set
-  // This makes Tag widget independent of toolbar status/priority/requester filters
-  const srcT=dateT;
+  // Use filteredT — same pipeline as KPI, SLA, Ageing, Squad, Support Ownership, Engineering
+  // This means status / priority / requester toolbar filters all apply here too
+  const srcT=filteredT;
   const tMap={};
   srcT.forEach(t=>{
     const raw=t['Tags']||'';
